@@ -35,7 +35,7 @@ def process_images(directory):
                 
                 # Format title with single trailing dot
                 if not title:
-                    title = f"Figure {idx}"
+                    title = f"Рисунок {idx}"
                 title = title.rstrip('.') + '.'
                 
                 figure_data.append({
@@ -118,7 +118,7 @@ def generate_report(directory, template_path, figure_data):
             
             # Add caption
             caption = doc.add_paragraph(
-                f"Figure {i} — {item['title']}", 
+                f"Рисунок {i} — {item['title']}", 
                 style='Normal'
             )
             caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
