@@ -29,14 +29,21 @@ def process_images(directory):
                 img.show()
                 
                 # Get title with smart formatting
-                title = input(f"\nIMAGE {idx}/{len(image_files)}\n"
-                            f"File: {os.path.basename(img_path)}\n"
-                            "Enter title (press Enter for default): ").strip()
+                user_input = input(f"\nIMAGE {idx}/{len(image_files)}\n"
+                                 f"File: {os.path.basename(img_path)}\n"
+                                 "Enter title (press Enter for default): ").strip()
                 
-                # Format title with single trailing dot
-                if not title:
-                    title = f"Figure {idx}"
-                title = title.rstrip('.') + '.'
+                # Process title
+                if user_input:
+                    # Remove existing dots and capitalize
+                    stripped = user_input.rstrip('.')
+                    if stripped:
+                        processed = stripped[0].upper() + stripped[1:]
+                    else:
+                        processed = f"Figure {idx}"
+                    title = f"{processed}."
+                else:
+                    title = f"Figure {idx}."
                 
                 figure_data.append({
                     'path': img_path,
@@ -94,10 +101,106 @@ def apply_document_styles(doc):
         heading_style.font.bold = False
         heading_style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
         
-def generate_report(directory, template_path, figure_data):
-    """Generate formatted report document"""
+def get_output_filename():
+    """Get and sanitize output filename from user"""
+    while True:
+        name = input("\nEnter report name (without extension): ").strip()
+        if not name:
+            print("Name cannot be empty!")
+            continue
+        
+        # Remove invalid characters
+        invalid_chars = r'\/:*?"<>|'
+        for char in invalid_chars:
+            name = name.replace(char, '_')
+        
+        # Limit length to 50 characters
+        name = name[:50]
+        return f"{name}.docx"
+
+def get_report_metadata():
+    """Get validated user input for report metadata"""
+    print("\n" + "="*40)
+    print(" Report Metadata ".center(40, "="))
+    print("="*40)
+    
+    # Get report number with validation
+    while True:
+        report_num = input("\nEnter report number: ").strip()
+        if report_num:
+            break
+        print("❌ Report number cannot be empty!")
+    
+    # Get report name with validation and capitalization
+    while True:
+        report_name = input("Enter report name: ").strip()
+        if report_name:
+            # Capitalize first letter, preserve others
+            report_name = report_name[0].upper() + report_name[1:]
+            break
+        print("❌ Report name cannot be empty!")
+    
+    # Select discipline with validation
+    while True:
+        print("\nSelect discipline:")
+        print("1. Администрирование сетей передачи информации")
+        print("2. Администрирование операционных систем")
+        print("3. Другое (ручной ввод)")
+        
+        discipline_choice = input("Enter choice (1-3): ").strip()
+        
+        if discipline_choice in ("1", "2", "3"):
+            break
+        print("❌ Invalid choice! Please enter 1, 2 or 3")
+    
+    # Handle discipline selection
+    if discipline_choice == "1":
+        discipline = "Администрирование сетей передачи информации"
+    elif discipline_choice == "2":
+        discipline = "Администрирование операционных систем"
+    else:
+        while True:
+            discipline = input("Enter custom discipline: ").strip()
+            if discipline:
+                break
+            print("❌ Discipline cannot be empty!")
+    
+    return {
+        "num": report_num,
+        "name": report_name,
+        "discipline": discipline
+    }
+
+def replace_placeholders(doc, replacements):
+    """Replace placeholders in Word document"""
+    for paragraph in doc.paragraphs:
+        for key, value in replacements.items():
+            if key in paragraph.text:
+                paragraph.text = paragraph.text.replace(key, value)
+    
+    # Handle tables
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    for key, value in replacements.items():
+                        if key in paragraph.text:
+                            paragraph.text = paragraph.text.replace(key, value)
+
+def generate_report(directory, template_path, figure_data, output_filename, metadata):
+    """Generate formatted report document with dynamic placeholders"""
     try:
         doc = Document(template_path)
+        
+        # Replace placeholders first
+        replacements = {
+            "%DISCIPLINE%": metadata["discipline"],
+            "%NUM%": metadata["num"],
+            "%REPORT_NAME%": metadata["name"]
+        }
+        replace_placeholders(doc, replacements)
+        
+        # Apply styles after replacements
         apply_document_styles(doc)
 
         # Add new section for figures
@@ -127,7 +230,7 @@ def generate_report(directory, template_path, figure_data):
             doc.add_paragraph()
 
         # Save document
-        output_path = os.path.join(directory, "Generated_Report.docx")
+        output_path = os.path.join(directory, output_filename)
         doc.save(output_path)
         return output_path
         
@@ -136,6 +239,7 @@ def generate_report(directory, template_path, figure_data):
         return None
 
 def main():
+    metadata = get_report_metadata()
     print("\n" + "="*40)
     print(" Lab Report Generator".ljust(39) + "=")
     print("="*40 + "\n")
@@ -157,8 +261,11 @@ def main():
     if not figure_data:
         sys.exit(1)
     
+    # Get output filename
+    output_filename = get_output_filename()
+    
     # Generate report
-    report_path = generate_report(directory, template_path, figure_data)
+    report_path = generate_report(directory, template_path, figure_data, output_filename, metadata)    
     
     if report_path:
         print("\n" + "="*40)
