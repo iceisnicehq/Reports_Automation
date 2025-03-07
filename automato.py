@@ -3,33 +3,9 @@ import glob
 import sys
 from PIL import Image
 from docx import Document
-from docx.shared import Inches
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-
-def find_word_template(directory):
-    """Find and select Word template in directory"""
-    templates = glob.glob(os.path.join(directory, "*.doc*"))
-    
-    if not templates:
-        print("\n❌ Error: No Word document found in directory!")
-        print("Please add a Word template file (.doc or .docx)")
-        return None
-    
-    if len(templates) == 1:
-        return templates[0]
-    
-    print("\nMultiple Word documents found:")
-    for i, path in enumerate(templates, 1):
-        print(f"{i}. {os.path.basename(path)}")
-    
-    while True:
-        try:
-            choice = int(input("\nEnter template number: "))
-            if 1 <= choice <= len(templates):
-                return templates[choice-1]
-            print("Invalid number! Try again.")
-        except ValueError:
-            print("Please enter a valid number!")
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.enum.style import WD_STYLE_TYPE
 
 def process_images(directory):
     """Process images with proper resource handling"""
@@ -73,35 +49,83 @@ def process_images(directory):
             
     return figure_data
 
+def find_word_template(directory):
+    """Find and select Word template in directory"""
+    templates = glob.glob(os.path.join(directory, "*.doc*"))
+    
+    if not templates:
+        print("\n❌ Error: No Word document found in directory!")
+        print("Please add a Word template file (.doc or .docx)")
+        return None
+    
+    if len(templates) == 1:
+        return templates[0]
+    
+    print("\nMultiple Word documents found:")
+    for i, path in enumerate(templates, 1):
+        print(f"{i}. {os.path.basename(path)}")
+    
+    while True:
+        try:
+            choice = int(input("\nEnter template number: "))
+            if 1 <= choice <= len(templates):
+                return templates[choice-1]
+            print("Invalid number! Try again.")
+        except ValueError:
+            print("Please enter a valid number!")
+            
+def apply_document_styles(doc):
+    """Set document-wide formatting styles"""
+    styles = doc.styles
+
+    # Set Normal style for body text
+    normal_style = styles['Normal']
+    normal_style.font.name = 'Times New Roman'
+    normal_style.font.size = Pt(14)
+    normal_style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
+    normal_style.paragraph_format.space_after = Pt(0)
+
+    # Configure heading styles
+    for heading_level in [1, 2]:
+        style_name = f'Heading {heading_level}'
+        heading_style = styles[style_name]
+        heading_style.font.name = 'Times New Roman'
+        heading_style.font.size = Pt(14)
+        heading_style.font.bold = False
+        heading_style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
+        
 def generate_report(directory, template_path, figure_data):
-    """Generate final report document"""
+    """Generate formatted report document"""
     try:
         doc = Document(template_path)
-        
+        apply_document_styles(doc)
+
         # Add new section for figures
         doc.add_section()
-        
+
         # Add figures with captions
         for i, item in enumerate(figure_data, 1):
             # Add image
-            para = doc.add_paragraph()
+            para = doc.add_paragraph(style='Normal')
             para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             
             try:
                 run = para.add_run()
                 run.add_picture(item['path'], width=Inches(6))
-            except:
+            except Exception as e:
                 print(f"⚠️ Couldn't insert image: {os.path.basename(item['path'])}")
                 continue
             
             # Add caption
-            caption = doc.add_paragraph()
+            caption = doc.add_paragraph(
+                f"Figure {i} — {item['title']}", 
+                style='Normal'
+            )
             caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            caption.add_run(f"Figure {i} — {item['title']}").bold = True
-            
+
             # Add spacing between figures
             doc.add_paragraph()
-        
+
         # Save document
         output_path = os.path.join(directory, "Generated_Report.docx")
         doc.save(output_path)
