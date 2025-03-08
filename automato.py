@@ -313,8 +313,6 @@ def generate_report(directory, template_path, figure_data, output_filename, meta
             )
             caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-            doc.add_paragraph()
-
         doc.add_page_break()
         
         answers_header = doc.add_heading('Ответы на вопросы', level=1)
