@@ -3,10 +3,65 @@ import glob
 import sys
 from PIL import Image
 from docx import Document
-from docx.shared import Inches, Pt
+from docx.shared import Inches, Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.style import WD_STYLE_TYPE
+from pdf2docx import Converter
 
+DISCIPLINE_MAP = {
+    'Администрирование сетей передачи информации': 'АСПИ',
+    'Администрирование операционных систем': 'АОС',
+    'Безопасность операционных систем': 'БОС',
+    'Современные операционные системы': 'СОС',
+    'Разработка корпоративных дистрибутивов': 'РКД',
+    'Специализированные языки и технологии программирования': 'СЯиТП'
+}
+
+def convert_pdf_to_docx(directory):
+    """Offer PDF to DOCX conversion with original filename"""
+    # Find all PDF files in directory
+    pdf_files = glob.glob(os.path.join(directory, '*.pdf'))
+    
+    if not pdf_files:
+        print("\nВ директории не найдено PDF-файлов.")
+        return
+    
+    # Display available PDF files
+    print("\nНайдены PDF-файлы:")
+    for idx, pdf in enumerate(pdf_files, 1):
+        print(f"{idx}. {os.path.basename(pdf)}")
+    print("0. Не конвертировать файлы")
+    
+    while True:
+        try:
+            choice = input("\nВыберите PDF для конвертации (0 чтобы пропустить): ").strip()
+            
+            # Handle skip option
+            if choice == '0':
+                print("Конвертация отменена.")
+                return
+            
+            # Validate choice
+            choice = int(choice)
+            if 1 <= choice <= len(pdf_files):
+                selected_pdf = pdf_files[choice-1]
+                docx_path = os.path.splitext(selected_pdf)[0] + '.docx'
+                
+                try:
+                    # Perform conversion
+                    cv = Converter(selected_pdf)
+                    cv.convert(docx_path)
+                    cv.close()
+                    print(f"✅ Успешно конвертирован: {os.path.basename(docx_path)}")
+                    return docx_path
+                except Exception as e:
+                    print(f"❌ Ошибка конвертации: {str(e)}")
+                    return None
+            else:
+                print(f"Пожалуйста, введите число от 0 до {len(pdf_files)}")
+        except ValueError:
+            print("Некорректный ввод! Введите число.")
+            
 def process_images(directory):
     image_files = sorted(
         [f for f in glob.glob(os.path.join(directory, "*.*")) 
@@ -73,84 +128,134 @@ def find_word_template(directory):
             print("Please enter a valid number!")
             
 def apply_document_styles(doc):
+    """Apply all document styles including page formatting"""
+    # Get document styles
     styles = doc.styles
-
+    
+    # ===== Normal text style =====
     normal_style = styles['Normal']
     normal_style.font.name = 'Times New Roman'
     normal_style.font.size = Pt(14)
+    normal_style.font.color.rgb = None  # Automatic (black)
     normal_style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
-    normal_style.paragraph_format.space_after = Pt(0)
-
-    for heading_level in [1, 2]:
-        style_name = f'Heading {heading_level}'
-        heading_style = styles[style_name]
-        heading_style.font.name = 'Times New Roman'
-        heading_style.font.size = Pt(14)
-        heading_style.font.bold = False
-        heading_style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
+    normal_style.paragraph_format.space_after = Pt(0)  # No extra space after paragraphs
         
-def get_output_filename():
-    while True:
-        name = input("\nEnter report name (without extension): ").strip()
-        if not name:
-            print("Name cannot be empty!")
-            continue
-        
-        invalid_chars = r'\/:*?"<>|'
-        for char in invalid_chars:
-            name = name.replace(char, '_')
-        
-        # Limit length to 50 characters
-        name = name[:50]
-        return f"{name}.docx"
+def get_output_filename(metadata):
+    """Generate filename using metadata"""
+    # Extract required fields from metadata
+    surname = metadata['last_name']
+    first_initial = metadata['first_name'][0].upper() if metadata['first_name'] else ''
+    patron_initial = metadata['patron_name'][0].upper() if metadata['patron_name'] else ''
+    report_num = metadata['num']
+    group = metadata['group']
+    discipline = metadata['discipline']
+    
+    # Format initials
+    initials = f"{first_initial}{patron_initial}" if patron_initial else first_initial
+    
+    # Abbreviate the discipline using DISCIPLINE_MAP
+    discipline_abbr = DISCIPLINE_MAP.get(discipline, discipline)
+    
+    # Construct the filename
+    filename = f"{surname}_{initials}_ЛР{report_num}_{group}_{discipline_abbr}.docx"
+    
+    # Replace invalid characters with underscores
+    invalid_chars = r'\/:*?"<>|'
+    for char in invalid_chars:
+        filename = filename.replace(char, '_')
+    
+    # Limit length to 50 characters
+    filename = filename[:50]
+    
+    return filename
 
 def get_report_metadata():
     print("\n" + "="*40)
     print(" Report Metadata ".center(40, "="))
     print("="*40)
     
+    # Personal information
     while True:
-        report_num = input("\nEnter report number: ").strip()
-        if report_num:
+        last_name = input("\nФамилия: ").strip()
+        if last_name:
             break
-        print("❌ Report number cannot be empty!")
+        print("❌ Фамилия не может быть пустой!")
     
     while True:
-        report_name = input("Enter report name: ").strip()
+        first_name = input("Имя: ").strip()
+        if first_name:
+            break
+        print("❌ Имя не может быть пустым!")
+    
+    patron_name = input("Отчество (если есть, иначе оставьте пустым): ").strip()
+    
+    while True:
+        group = input("Группа (в формате Кх-2х-хх): ").strip()
+        if group:
+            break
+        print("❌ Группа не может быть пустой!")
+    
+    # Report information
+    while True:
+        report_num = input("\nНомер отчёта: ").strip()
+        if report_num:
+            break
+        print("❌ Номер отчёта не может быть пустым!")
+    
+    while True:
+        report_name = input("Название отчёта: ").strip()
         if report_name:
             report_name = report_name[0].upper() + report_name[1:]
             break
-        print("❌ Report name cannot be empty!")
+        print("❌ Название отчёта не может быть пустым!")
     
+    # Discipline selection
     while True:
-        print("\nSelect discipline:")
+        print("\nВыберите дисциплину:")
         print("1. Администрирование сетей передачи информации")
         print("2. Администрирование операционных систем")
-        print("3. Другое (ручной ввод)")
+        print("3. Безопасность операционных систем")
+        print("4. Современные операционные системы")
+        print("5. Разработка корпоративных дистрибутивов")
+        print("6. Специализированные языки и технологии программирования")
+        print("7. Другое (ручной ввод)")
         
-        discipline_choice = input("Enter choice (1-3): ").strip()
+        discipline_choice = input("Ваш выбор (1-7): ").strip()
         
-        if discipline_choice in ("1", "2", "3"):
+        if discipline_choice in ("1", "2", "3", "4", "5", "6", "7"):
             break
-        print("❌ Invalid choice! Please enter 1, 2 or 3")
+        print("❌ Некорректный выбор! Введите число от 1 до 7.")
     
+    # Map discipline choice
     if discipline_choice == "1":
         discipline = "Администрирование сетей передачи информации"
     elif discipline_choice == "2":
         discipline = "Администрирование операционных систем"
+    elif discipline_choice == "3":
+        discipline = "Безопасность операционных систем"
+    elif discipline_choice == "4":
+        discipline = "Современные операционные системы"
+    elif discipline_choice == "5":
+        discipline = "Разработка корпоративных дистрибутивов"
+    elif discipline_choice == "6":
+        discipline = "Специализированные языки и технологии программирования"
     else:
         while True:
-            discipline = input("Enter custom discipline: ").strip()
+            discipline = input("Введите название дисциплины: ").strip()
             if discipline:
                 break
-            print("❌ Discipline cannot be empty!")
+            print("❌ Название дисциплины не может быть пустым!")
     
     return {
+        "last_name": last_name,
+        "first_name": first_name,
+        "patron_name": patron_name,
+        "group": group,
         "num": report_num,
         "name": report_name,
         "discipline": discipline
     }
-
+    
 def replace_placeholders(doc, replacements):
     """Replace placeholders in Word document"""
     for paragraph in doc.paragraphs:
@@ -172,19 +277,32 @@ def generate_report(directory, template_path, figure_data, output_filename, meta
     try:
         doc = Document(template_path)
         
-        # Replace placeholders first
+        # Replace placeholders
         replacements = {
             "%DISCIPLINE%": metadata["discipline"],
             "%NUM%": metadata["num"],
-            "%REPORT_NAME%": metadata["name"]
+            "%REPORT_NAME%": metadata["name"],
+            "%LAST_NAME%": metadata["last_name"],
+            "%FIRST_NAME%": metadata["first_name"],
+            "%PATRON_NAME%": metadata.get("patron_name", ""),  # Optional field
+            "%GROUP%": metadata["group"]
         }
         replace_placeholders(doc, replacements)
         
+        # Apply document-wide styles
         apply_document_styles(doc)
 
+        # Add initial section
         doc.add_section()
 
+        # Add "Выполнение лабораторной работы" header
+        execution_header = doc.add_heading('Выполнение лабораторной работы', level=1)
+        execution_header.runs[0].bold = True
+        doc.add_paragraph()  # Add some space after header
+
+        # Insert images with captions
         for i, item in enumerate(figure_data, 1):
+            # Add image
             para = doc.add_paragraph(style='Normal')
             para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             
@@ -195,14 +313,28 @@ def generate_report(directory, template_path, figure_data, output_filename, meta
                 print(f"⚠️ Couldn't insert image: {os.path.basename(item['path'])}")
                 continue
             
+            # Add caption
             caption = doc.add_paragraph(
                 f"Рисунок {i} — {item['title']}", 
                 style='Normal'
             )
             caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
+            # Add spacing between figures
             doc.add_paragraph()
 
+        # Add final headers
+        doc.add_page_break()  # Page break before new headers
+        
+        # Add "Ответы на вопросы" header
+        answers_header = doc.add_heading('Ответы на вопросы', level=1)
+        answers_header.runs[0].bold = True
+        
+        # Add "Заключение" header
+        conclusion_header = doc.add_heading('Заключение', level=1)
+        conclusion_header.runs[0].bold = True
+
+        # Save document
         output_path = os.path.join(directory, output_filename)
         doc.save(output_path)
         return output_path
@@ -210,9 +342,9 @@ def generate_report(directory, template_path, figure_data, output_filename, meta
     except Exception as e:
         print(f"\n❌ Critical error generating report: {str(e)}")
         return None
-
+    
 def main():
-    metadata = get_report_metadata()
+    report_metadata = get_report_metadata()
     print("\n" + "="*40)
     print(" Lab Report Generator".ljust(39) + "=")
     print("="*40 + "\n")
@@ -231,10 +363,10 @@ def main():
     if not figure_data:
         sys.exit(1)
     
-    output_filename = get_output_filename()
+    output_filename = get_output_filename(report_metadata)
     
-    report_path = generate_report(directory, template_path, figure_data, output_filename, metadata)    
-    
+    report_path = generate_report(directory, template_path, figure_data, output_filename, report_metadata)    
+    convert_pdf_to_docx(directory)
     if report_path:
         print("\n" + "="*40)
         print(f"✅ Report successfully generated at:\n{report_path}")
