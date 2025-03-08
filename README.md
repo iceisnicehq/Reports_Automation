@@ -1,4 +1,5 @@
 # Reports Automation 📄
+_Программа тестировалась на _Python 3.13.2_ на операционной системе Microsoft Windows 11 Version 24H2_
 
 This project aims to automate the process for creating reports on repetitive lab experiments (provided by [AU_team](https://au-team.ru/)
 
@@ -88,5 +89,5 @@ automato.py
 [Футер]
 ```
 ---
-
-_Программа тестировалась на _Python 3.13.2_ на операционной системе Microsoft Windows 11 Version 24H2_
+### Лицензия
+Этот проект распространяется под лицензией MIT. Подробности см. в файле [LICENSE](https://github.com/iceisnicehq/Reports_Automation/blob/main/LICENSE).
