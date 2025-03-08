@@ -303,7 +303,6 @@ def generate_report(directory, template_path, figure_data, output_filename, meta
 
         execution_header = doc.add_heading('Выполнение лабораторной работы', level=1)
         execution_header.runs[0].bold = True
-        doc.add_paragraph() 
 
         for i, item in enumerate(figure_data, 1):
             para = doc.add_paragraph(style='Normal')
