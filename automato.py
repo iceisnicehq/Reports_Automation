@@ -205,14 +205,14 @@ def get_report_metadata():
         report_num = input("\nНомер лабораторной работы: ").strip()
         if report_num and number_pattern.match(report_num):
             break
-        print("❌ Номер отчёта должен быть числом!")
+        print("❌ Номер должен быть числом!")
     
     while True:
         report_name = input("Название лабораторной работы: ").strip()
         if report_name:
             report_name = report_name[0].upper() + report_name[1:].lower()
             break
-        print("❌ Название отчёта не может быть пустым!")
+        print("❌ Название не может быть пустым!")
     
     # Discipline selection
     while True:
@@ -223,13 +223,12 @@ def get_report_metadata():
         print("4. Современные операционные системы")
         print("5. Разработка корпоративных дистрибутивов")
         print("6. Специализированные языки и технологии программирования")
-        print("7. Другое (ручной ввод)")
         
-        discipline_choice = input("Ваш выбор (1-7): ").strip()
+        discipline_choice = input("Ваш выбор (1-6): ").strip()
         
-        if discipline_choice in ("1", "2", "3", "4", "5", "6", "7"):
+        if discipline_choice in ("1", "2", "3", "4", "5", "6"):
             break
-        print("❌ Некорректный выбор! Введите число от 1 до 7.")
+        print("❌ Некорректный выбор! Введите число от 1 до 6.")
     
     # Map discipline choice
     if discipline_choice == "1":
@@ -244,13 +243,6 @@ def get_report_metadata():
         discipline = "Разработка корпоративных дистрибутивов"
     elif discipline_choice == "6":
         discipline = "Специализированные языки и технологии программирования"
-    else:
-        while True:
-            discipline = input("Введите название дисциплины: ").strip()
-            if discipline:
-                discipline = discipline[0].upper() + discipline[1:].lower()
-                break
-            print("❌ Название дисциплины не может быть пустым!")
     
     return {
         "last_name": last_name,
