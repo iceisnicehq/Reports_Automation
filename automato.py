@@ -71,6 +71,7 @@ def process_images(directory):
         return None
     
     figure_data = []
+    skipped_counter = 0
     
     for idx, img_path in enumerate(image_files, 1):
         try:
@@ -79,17 +80,25 @@ def process_images(directory):
                 img.show()
                 user_input = input(f"\nИзображение {idx}/{len(image_files)}\n"
                                  f"Файл: {os.path.basename(img_path)}\n"
-                                 "Введите название (описание): ").strip()
+                                 "Введите название (описание) или '-' для пропуска: ").strip()
+                
+                if user_input == "-":
+                    print(f"Изображение {os.path.basename(img_path)} пропущено.")
+                    skipped_counter += 1
+                    continue
+                
+                adjusted_idx = idx - skipped_counter
                 
                 if user_input:
                     stripped = user_input.rstrip('.')
                     if stripped:
                         processed = stripped[0].upper() + stripped[1:]
                     else:
-                        processed = f"Рис. {idx}. "
+                        processed = f"Рис. {adjusted_idx}. "
                     title = f"{processed}."
                 else:
-                    title = f"Рис. {idx}. "
+                    title = f"Рис. {adjusted_idx}. "
+                
                 figure_data.append({
                     'path': img_path,
                     'title': title
@@ -97,6 +106,7 @@ def process_images(directory):
         except Exception as e:
             print(f"\n⚠️ Ошибка обработки {os.path.basename(img_path)}: {str(e)}")
             continue
+    
     return figure_data
 
 def find_word_template(directory):
