@@ -1,11 +1,11 @@
 import os
 import glob
 import sys
+import re
 from PIL import Image
 from docx import Document
-from docx.shared import Inches, Pt, Cm
+from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-from docx.enum.style import WD_STYLE_TYPE
 from pdf2docx import Converter
 
 DISCIPLINE_MAP = {
@@ -35,20 +35,16 @@ def convert_pdf_to_docx(directory):
     while True:
         try:
             choice = input("\nВыберите PDF для конвертации (0 чтобы пропустить): ").strip()
-            
-            # Handle skip option
             if choice == '0':
                 print("Конвертация отменена.")
                 return
             
-            # Validate choice
             choice = int(choice)
             if 1 <= choice <= len(pdf_files):
                 selected_pdf = pdf_files[choice-1]
                 docx_path = os.path.splitext(selected_pdf)[0] + '.docx'
                 
                 try:
-                    # Perform conversion
                     cv = Converter(selected_pdf)
                     cv.convert(docx_path)
                     cv.close()
@@ -70,8 +66,8 @@ def process_images(directory):
     )
     
     if not image_files:
-        print("\n❌ Error: No image files found!")
-        print("Supported formats: PNG, JPG/JPEG, GIF")
+        print("\n❌ Ошибка: изображений нет в директории!")
+        print("Поддерживаемые форматы: PNG, JPG/JPEG, GIF")
         return None
     
     figure_data = []
@@ -81,25 +77,25 @@ def process_images(directory):
             with Image.open(img_path) as img:
                 # Show image using default viewer
                 img.show()
-                user_input = input(f"\nIMAGE {idx}/{len(image_files)}\n"
-                                 f"File: {os.path.basename(img_path)}\n"
-                                 "Enter title (press Enter for default): ").strip()
+                user_input = input(f"\nИзображение {idx}/{len(image_files)}\n"
+                                 f"Файл: {os.path.basename(img_path)}\n"
+                                 "Введите название (описание): ").strip()
                 
                 if user_input:
                     stripped = user_input.rstrip('.')
                     if stripped:
                         processed = stripped[0].upper() + stripped[1:]
                     else:
-                        processed = f"Рисунок {idx}"
+                        processed = f"Рис. {idx}. "
                     title = f"{processed}."
                 else:
-                    title = f"Рисунок {idx}."
+                    title = f"Рис. {idx}. "
                 figure_data.append({
                     'path': img_path,
                     'title': title
                 })
         except Exception as e:
-            print(f"\n⚠️ Error processing {os.path.basename(img_path)}: {str(e)}")
+            print(f"\n⚠️ Ошибка обработки {os.path.basename(img_path)}: {str(e)}")
             continue
     return figure_data
 
@@ -107,29 +103,28 @@ def find_word_template(directory):
     templates = glob.glob(os.path.join(directory, "*.doc*"))
     
     if not templates:
-        print("\n❌ Error: No Word document found in directory!")
-        print("Please add a Word template file (.doc or .docx)")
+        print("\n❌ Ошибка: в директории нет doc(x) файлов!")
+        print("Добавьте файл-шаблон - template.docx")
         return None
     
     if len(templates) == 1:
         return templates[0]
     
-    print("\nMultiple Word documents found:")
+    print("\nВыберите файл-шаблон:")
     for i, path in enumerate(templates, 1):
         print(f"{i}. {os.path.basename(path)}")
     
     while True:
         try:
-            choice = int(input("\nEnter template number: "))
+            choice = int(input("\nВведите номер файла: "))
             if 1 <= choice <= len(templates):
                 return templates[choice-1]
-            print("Invalid number! Try again.")
+            print("Номер неверный, введите снова.")
         except ValueError:
-            print("Please enter a valid number!")
+            print("Введите число!")
             
 def apply_document_styles(doc):
     """Apply all document styles including page formatting"""
-    # Get document styles
     styles = doc.styles
     
     # ===== Normal text style =====
@@ -159,53 +154,63 @@ def get_output_filename(metadata):
     # Construct the filename
     filename = f"{surname}_{initials}_ЛР{report_num}_{group}_{discipline_abbr}.docx"
     
-    # Replace invalid characters with underscores
     invalid_chars = r'\/:*?"<>|'
     for char in invalid_chars:
-        filename = filename.replace(char, '_')
+        filename = filename.replace(char, '')
     
-    # Limit length to 50 characters
     filename = filename[:50]
     
     return filename
 
 def get_report_metadata():
     print("\n" + "="*40)
-    print(" Report Metadata ".center(40, "="))
+    print(" Метаданные для отчета ".center(40, "="))
     print("="*40)
+    
+    name_pattern = re.compile(r'^[А-Яа-яЁё-]+$')     # Russian letters and hyphens
+    group_pattern = re.compile(r'^\w{2}-\d{2}-\d{2}$')  # КХ-22-01 format
+    number_pattern = re.compile(r'^\d+$')            # Only digits
     
     # Personal information
     while True:
         last_name = input("\nФамилия: ").strip()
-        if last_name:
+        if last_name and name_pattern.match(last_name):
+            last_name = last_name[0].upper() + last_name[1:].lower()
             break
-        print("❌ Фамилия не может быть пустой!")
+        print("❌ Фамилия не может быть пустой и должна содержать только русские буквы!")
     
     while True:
         first_name = input("Имя: ").strip()
-        if first_name:
+        if first_name and name_pattern.match(first_name):
+            first_name = first_name[0].upper() + first_name[1:].lower()
             break
-        print("❌ Имя не может быть пустым!")
-    
-    patron_name = input("Отчество (если есть, иначе оставьте пустым): ").strip()
+        print("❌ Имя не может быть пустым и должно содержать только русские буквы!")
     
     while True:
-        group = input("Группа (в формате Кх-2х-хх): ").strip()
-        if group:
+        patron_name = input("Отчество: ").strip()
+        if not patron_name or name_pattern.match(patron_name):
+            if patron_name:
+                patron_name = patron_name[0].upper() + patron_name[1:].lower()
             break
-        print("❌ Группа не может быть пустой!")
+        print("❌ Отчество должно содержать только русские буквы (оставьте пустым, если нет)!")
+    
+    while True:
+        group = input("Группа (в формате Кх-2х-хх): ").strip().upper()
+        if group and group_pattern.match(group):
+            break
+        print("❌ Группа должна быть в формате КХ-22-01!")
     
     # Report information
     while True:
-        report_num = input("\nНомер отчёта: ").strip()
-        if report_num:
+        report_num = input("\nНомер лабораторной работы: ").strip()
+        if report_num and number_pattern.match(report_num):
             break
-        print("❌ Номер отчёта не может быть пустым!")
+        print("❌ Номер отчёта должен быть числом!")
     
     while True:
-        report_name = input("Название отчёта: ").strip()
+        report_name = input("Название лабораторной работы: ").strip()
         if report_name:
-            report_name = report_name[0].upper() + report_name[1:]
+            report_name = report_name[0].upper() + report_name[1:].lower()
             break
         print("❌ Название отчёта не может быть пустым!")
     
@@ -243,6 +248,7 @@ def get_report_metadata():
         while True:
             discipline = input("Введите название дисциплины: ").strip()
             if discipline:
+                discipline = discipline[0].upper() + discipline[1:].lower()
                 break
             print("❌ Название дисциплины не может быть пустым!")
     
@@ -289,20 +295,15 @@ def generate_report(directory, template_path, figure_data, output_filename, meta
         }
         replace_placeholders(doc, replacements)
         
-        # Apply document-wide styles
         apply_document_styles(doc)
 
-        # Add initial section
         doc.add_section()
 
-        # Add "Выполнение лабораторной работы" header
         execution_header = doc.add_heading('Выполнение лабораторной работы', level=1)
         execution_header.runs[0].bold = True
-        doc.add_paragraph()  # Add some space after header
+        doc.add_paragraph() 
 
-        # Insert images with captions
         for i, item in enumerate(figure_data, 1):
-            # Add image
             para = doc.add_paragraph(style='Normal')
             para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             
@@ -310,50 +311,45 @@ def generate_report(directory, template_path, figure_data, output_filename, meta
                 run = para.add_run()
                 run.add_picture(item['path'], width=Inches(6))
             except Exception as e:
-                print(f"⚠️ Couldn't insert image: {os.path.basename(item['path'])}")
+                print(f"⚠️ Ошибка с вставкой изображения: {os.path.basename(item['path'])}")
                 continue
             
             # Add caption
             caption = doc.add_paragraph(
-                f"Рисунок {i} — {item['title']}", 
+                f"Рис. {i}. {item['title']}", 
                 style='Normal'
             )
             caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-            # Add spacing between figures
             doc.add_paragraph()
 
-        # Add final headers
-        doc.add_page_break()  # Page break before new headers
+        doc.add_page_break()
         
-        # Add "Ответы на вопросы" header
         answers_header = doc.add_heading('Ответы на вопросы', level=1)
         answers_header.runs[0].bold = True
-        
-        # Add "Заключение" header
         conclusion_header = doc.add_heading('Заключение', level=1)
         conclusion_header.runs[0].bold = True
 
-        # Save document
         output_path = os.path.join(directory, output_filename)
         doc.save(output_path)
         return output_path
         
     except Exception as e:
-        print(f"\n❌ Critical error generating report: {str(e)}")
+        print(f"\n❌ Критическая ошибка с созданием отчета: {str(e)}")
+        print(f"\nПроверьте не открыт ли файл с таким же названием")
         return None
     
 def main():
     report_metadata = get_report_metadata()
     print("\n" + "="*40)
-    print(" Lab Report Generator".ljust(39) + "=")
+    print(" Создание отчетов".ljust(39) + "=")
     print("="*40 + "\n")
     
     while True:
-        directory = input("Enter full path to working directory: ").strip()
+        directory = input("Введите абсолютный путь до изображений с шаблоном: ").strip()
         if os.path.isdir(directory):
             break
-        print("Invalid directory! Try again.")
+        print("Неверная директория! Введите снова.")
     
     template_path = find_word_template(directory)
     if not template_path:
@@ -366,13 +362,14 @@ def main():
     output_filename = get_output_filename(report_metadata)
     
     report_path = generate_report(directory, template_path, figure_data, output_filename, report_metadata)    
-    convert_pdf_to_docx(directory)
     if report_path:
         print("\n" + "="*40)
-        print(f"✅ Report successfully generated at:\n{report_path}")
+        print(f"✅ Отчет сгенерировани:\n{report_path}")
         print("="*40 + "\n")
     else:
-        print("\n❌ Failed to generate report")
+        print("\n❌ Ошибка с генерацией отчета")
+        sys.exit(1)
+    convert_pdf_to_docx(directory)
 
 if __name__ == "__main__":
     main()
