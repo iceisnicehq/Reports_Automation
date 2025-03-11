@@ -72,23 +72,66 @@ def process_images(directory):
     
     figure_data = []
     skipped_counter = 0
+    idx = 0  # Start from the first image
     
-    for idx, img_path in enumerate(image_files, 1):
+    while idx < len(image_files):
+        img_path = image_files[idx]
         try:
             with Image.open(img_path) as img:
                 # Show image using default viewer
                 img.show()
-                user_input = input(f"\nИзображение {idx}/{len(image_files)}\n"
-                                 f"Файл: {os.path.basename(img_path)}\n"
-                                 "Введите название (описание) или '-' для пропуска: ").strip()
                 
-                if user_input == "-":
-                    print(f"Изображение {os.path.basename(img_path)} пропущено.")
-                    skipped_counter += 1
+                # Print guide message
+                print("\nДоступные команды:")
+                print(" - Введите описание для добавления изображения")
+                print(" - Нажмите 'B' чтобы вернуться к предыдущему изображению")
+                print(" - Нажмите 'S' чтобы пропустить текущее изображение")
+                print(" - Нажмите 'D' чтобы удалить текущее изображение")
+                print(" - Нажмите 'E' чтобы изменить описание текущего изображения")
+                
+                user_input = input(f"\nИзображение {idx + 1}/{len(image_files)}\n"
+                                 f"Файл: {os.path.basename(img_path)}\n"
+                                 "Введите название (описание) или команду: ").strip()
+                
+                # Handle commands
+                if user_input.lower() == 'b':  # Go back
+                    if idx > 0:
+                        idx -= 1
+                        if figure_data and figure_data[-1]['path'] == image_files[idx]:
+                            figure_data.pop()  # Remove the last added image
+                        print(f"Возврат к изображению {idx + 1}.")
+                    else:
+                        print("❌ Невозможно вернуться назад: это первое изображение.")
                     continue
                 
-                adjusted_idx = idx - skipped_counter
+                elif user_input.lower() == 's':  # Skip
+                    print(f"Изображение {os.path.basename(img_path)} пропущено.")
+                    skipped_counter += 1
+                    idx += 1
+                    continue
                 
+                elif user_input.lower() == 'd':  # Delete
+                    print(f"Изображение {os.path.basename(img_path)} удалено.")
+                    del image_files[idx]  # Delete the current image
+                    # Do not decrement idx; move to the next image
+                    continue
+                
+                elif user_input.lower() == 'e':  # Edit
+                    if figure_data and figure_data[-1]['path'] == img_path:
+                        new_title = input("Введите новое описание: ").strip()
+                        if new_title:
+                            stripped = new_title.rstrip('.')
+                            processed = stripped[0].upper() + stripped[1:]
+                            figure_data[-1]['title'] = f"{processed}."
+                            print("Описание успешно изменено.")
+                        else:
+                            print("❌ Описание не может быть пустым.")
+                    else:
+                        print("❌ Невозможно изменить описание: изображение еще не добавлено.")
+                    continue
+
+                # Handle description input
+                adjusted_idx = idx + 1 - skipped_counter
                 if user_input:
                     stripped = user_input.rstrip('.')
                     if stripped:
@@ -97,14 +140,17 @@ def process_images(directory):
                         processed = f"Рис. {adjusted_idx}. "
                     title = f"{processed}."
                 else:
-                    title = f"Рис. {adjusted_idx}. "
+                    title = f"Рис. {adjusted_idx}. sssss"
                 
                 figure_data.append({
                     'path': img_path,
                     'title': title
                 })
+                idx += 1
+                
         except Exception as e:
             print(f"\n⚠️ Ошибка обработки {os.path.basename(img_path)}: {str(e)}")
+            idx += 1
             continue
     
     return figure_data
@@ -220,7 +266,7 @@ def get_report_metadata():
     while True:
         report_name = input("Название лабораторной работы: ").strip()
         if report_name:
-            report_name = report_name[0].upper() + report_name[1:].lower()
+            report_name = report_name[0].upper() + report_name[1:]
             break
         print("❌ Название не может быть пустым!")
     
